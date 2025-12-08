@@ -15,7 +15,10 @@
         <button class="btn btn-generate" onclick="generateAudio()">GENERATE AUDIO</button>
         <button class="btn btn-clear-text" onclick="clearText()">CLEAR TEXT</button>
     </div>
-
+    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+         <div class="spinner"></div>
+         <p>Generating audio... This may take a moment.</p>
+    </div>
     <div class="input-group wav-select-group">
         <label for="narrator-wav">Narrator Voice:</label>
         <select id="narrator-wav">
