@@ -2,7 +2,8 @@ import os
 import io
 import time
 import json
-from flask import Flask, render_template, request, send_file, jsonify
+import tempfile
+from flask import Flask, render_template, request, send_file, jsonify, make_response
 from datetime import datetime
 import torchaudio as ta
 import torch
@@ -88,52 +89,75 @@ def log_visit():
 
 @app.route('/generate_audio', methods=['POST'])
 def generate_audio():
-    """
-    Synthesizes speech based on text and a selected narrator WAV, 
-    then forces a download.
-    """
     if not tts_model:
-        return "Error: TTS model not loaded.", 500
+        return jsonify({'error': 'TTS model not loaded.'}), 500
+
+    # CRITICAL FIX: Retrieve data using keys matching the HTML IDs from the frontend
+    text_prompt = request.form.get('text-prompt') 
+    narrator_file_selection = request.form.get('narrator-wav') 
+    uploaded_file = request.files.get('upload-wav') 
+    
+    temp_file_path = None
+    audio_prompt_path = None
+
+    if not text_prompt:
+        return jsonify({'error': 'No text prompt provided.'}), 400
 
     try:
-        data = request.get_json()
-        text_prompt = data.get('text_prompt')
-        narrator_file = data.get('narrator_file') # This is the filename (e.g., 'trump_sample.wav')
-
-        if not text_prompt:
-            return "Please enter text to synthesize.", 400
-
-        audio_prompt_path = None
-        if narrator_file and narrator_file != 'none':
-            # Construct the full filesystem path to the selected WAV file
-            audio_prompt_path = os.path.join(SAMPLES_FOLDER, narrator_file)
+        if uploaded_file and uploaded_file.filename != '':
+            # --- UPLOAD PATH ---
+            print(f"Processing uploaded file: {uploaded_file.filename}")
+            
+            suffix = os.path.splitext(uploaded_file.filename)[1]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                uploaded_file.save(tmp.name)
+                temp_file_path = tmp.name
+                audio_prompt_path = temp_file_path
+            
+        elif narrator_file_selection and narrator_file_selection != 'none':
+            # --- SELECT PATH ---
+            print(f"Processing sample file: {narrator_file_selection}")
+            
+            audio_prompt_path = os.path.join(app.root_path, SAMPLES_FOLDER, narrator_file_selection)
             if not os.path.exists(audio_prompt_path):
-                return f"Error: Narrator file {narrator_file} not found.", 404
+                 return jsonify({'error': f'Sample file {narrator_file_selection} not found on server.'}), 404
+        
+        else:
+            return jsonify({'error': 'No narrator source provided.'}), 400
 
-        print(f"Generating audio with voice: {narrator_file or 'Default'} for text: '{text_prompt[:50]}...'")
-
+        # --- TTS GENERATION ---
+        print(f"Generating audio for text: '{text_prompt[:50]}...' using voice: {audio_prompt_path or 'Default'}")
+        
+        # Call the actual model function
         wav = tts_model.generate(text_prompt, audio_prompt_path=audio_prompt_path)
         
         # Save the waveform to an in-memory byte buffer
         buffer = io.BytesIO()
-        # Use the model's sample rate (tts_model.sr) for saving
         ta.save(buffer, wav.to('cpu'), tts_model.sr, format="wav") 
         buffer.seek(0)
-
-        # Create a unique filename for the download
-        download_filename = f"chatterbox_output_{int(time.time())}.wav"
-
-        # Stream the file for automatic download
-        return send_file(
-            buffer,
-            mimetype='audio/wav',
-            as_attachment=True,
-            download_name=download_filename
-        )
-
+        
+        # --- RESPONSE SETUP ---
+        download_filename = f"chatterbox_output_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
+        
+        response = make_response(buffer.getvalue())
+        response.headers.set('Content-Type', 'audio/wav')
+        response.headers.set('Content-Disposition', 'inline', filename=download_filename)
+        
+        return response
+        
     except Exception as e:
-        print(f"TTS Generation Error: {e}")
-        return f"An error occurred during TTS generation: {e}", 500
+        # Log the error for debugging
+        print(f"Error during audio generation: {e}")
+        return jsonify({'error': f'An error occurred during TTS: {str(e)}'}), 500
+        
+    finally:
+        # Clean up the temporary file, ensuring it's deleted
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                print(f"Successfully deleted temporary file: {temp_file_path}")
+            except Exception as e:
+                print(f"Warning: Could not delete temporary file {temp_file_path}. Error: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

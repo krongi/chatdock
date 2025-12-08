@@ -1,113 +1,104 @@
-// function generateAudio() {
-//     let textPrompt = document.getElementById('text-prompt').value;
-//     let narratorFile = document.getElementById('narrator-wav').value;
+// Global variables to store the audio blob and filename for download
+let audioBlobUrl = null;
+let audioDownloadFilename = 'chatterbox_output.wav'; 
 
-//     if (!textPrompt) {
-//         alert("Please enter some text to generate audio.");
-//         return;
-//     }
-
-//     // You might want to disable the button here to prevent multiple clicks
-//     let generateButton = document.querySelector('.btn-generate');
-//     generateButton.disabled = true;
-
-//     fetch('/generate_audio', {
-//         method: 'POST',
-//         headers: {
-//             'Content-Type': 'application/json'
-//         },
-//         body: JSON.stringify({
-//             text_prompt: textPrompt,
-//             narrator_file: narratorFile
-//         })
-//     })
-//     .then(response => {
-//         // If the server returns a successful stream, prompt for download
-//         generateButton.disabled = false;
-//         if (response.ok && response.headers.get('Content-Type') === 'audio/wav') {
-//             // This triggers the automatic download
-//             return response.blob();
-//         } else if (response.ok) {
-//             // Handle JSON error response if generation fails server-side
-//             return response.json().then(data => { throw new Error(data.message); });
-//         } else {
-//             throw new Error('Server returned an error.');
-//         }
-//     })
-//     .then(blob => {
-//         // Create a link element, set its attributes, and simulate a click to download
-//         let url = window.URL.createObjectURL(blob);
-//         let a = document.createElement('a');
-//         a.style.display = 'none';
-//         a.href = url;
-//         // The server provides the download_name via the Content-Disposition header, 
-//         // but we ensure it works even if that fails.
-//         a.download = 'chatterbox_output.wav'; 
-//         document.body.appendChild(a);
-//         a.click();
-//         window.URL.revokeObjectURL(url);
-//     })
-//     .catch(error => {
-//         alert("Audio generation failed: " + error.message);
-//     })
-//     // .finally(() => {
-//     //     // Re-enable the button
-//     //     generateButton.disabled = false;
-//     // });
-// }
+// New function to update the displayed file name and clear select
+function updateFileNameDisplay(input) {
+    const filenameDisplay = document.getElementById('upload-filename');
+    if (input.files.length > 0) {
+        filenameDisplay.textContent = `File selected: ${input.files[0].name}`;
+    } else {
+        filenameDisplay.textContent = 'Or click here to upload a WAV/MP3 file...';
+    }
+}
 
 function generateAudio() {
-    let textPrompt = document.getElementById('text-prompt').value;
-    // Assuming you implemented a dropdown or input for narrator file:
-    let narratorFile = document.getElementById('narrator-wav').value; 
+    // 1. Retrieve values using the correct HTML IDs
+    const textPrompt = document.getElementById('text-prompt').value;
+    const narratorFileSelect = document.getElementById('narrator-wav').value; 
+    const uploadedFile = document.getElementById('upload-wav').files[0];
     
-    // --- New DOM Elements ---
-    let generateButton = document.querySelector('.btn-generate');
-    let indicator = document.getElementById('loading-indicator');
-    
+    // --- Target specific DOM Elements ---
+    const generateButton = document.querySelector('.btn-generate');
+    const indicator = document.getElementById('loading-indicator');
+    const audioPlayerContainer = document.getElementById('player');
+    const audioPlayer = document.getElementById('audio-player');
+
     if (!textPrompt) {
         alert("Please enter some text to generate audio.");
         return;
     }
 
-    // 1. START: Show indicator and disable button
-    generateButton.disabled = true;
-    indicator.style.display = 'flex'; // Show the loading indicator
+    if (narratorFileSelect === 'none' && !uploadedFile) {
+        alert("Please select a sample voice or upload a narrator voice file.");
+        return;
+    }
+    
+    // 2. Use FormData for file submission
+    const formData = new FormData();
+    
+    // CRITICAL FIX: Use the HTML ID name as the FormData key
+    formData.append('text-prompt', textPrompt); 
 
+    if (uploadedFile) {
+        // Use 'upload-wav' key for the file
+        formData.append('upload-wav', uploadedFile); 
+    } else {
+        // Use 'narrator-wav' key for the selected filename string
+        formData.append('narrator-wav', narratorFileSelect); 
+    }
+
+    // 3. START: Reset state, show indicator, and disable button
+    generateButton.disabled = true;
+    indicator.style.display = 'flex';
+    audioPlayerContainer.hidden = true;
+    audioPlayer.removeAttribute('src'); // Clear previous audio
+    
+    audioBlobUrl = null; 
+
+    // NOTICE: Do not set Content-Type: application/json when using FormData
     fetch('/generate_audio', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            text_prompt: textPrompt,
-            // narrator_file: narratorFile // Include this if you implement the dropdown
-        })
+        body: formData // Send the FormData object
     })
     .then(response => {
-        if (response.ok && response.headers.get('Content-Type') === 'audio/wav') {
-            return response.blob();
-        } else {
+        if (!response.ok) {
             // Read error response text/JSON for better message
-            return response.text().then(text => { throw new Error(text || 'Server returned an error.'); });
+            return response.text().then(text => { 
+                try {
+                    const errorJson = JSON.parse(text);
+                    throw new Error(errorJson.error || 'Server returned an unknown error.');
+                } catch {
+                    throw new Error(text || 'Server returned an error.');
+                }
+            });
         }
+        
+        // Extract filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename=["']?([^"']+)["']?/i);
+            if (match && match[1]) {
+                audioDownloadFilename = match[1];
+            }
+        }
+        
+        return response.blob();
     })
     .then(blob => {
-        // Successful download logic
-        let url = window.URL.createObjectURL(blob);
-        let a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = 'chatterbox_output.wav'; 
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
+        // SUCCESS: Set the audio player source
+        const url = window.URL.createObjectURL(blob);
+        audioBlobUrl = url; // Store for download function
+        
+        audioPlayer.src = url;
+        audioPlayerContainer.hidden = false;
+        
     })
     .catch(error => {
         alert("Audio generation failed: " + error.message);
     })
     .finally(() => {
-        // 2. END: Hide indicator and re-enable button regardless of success/fail
+        // END: Hide indicator and re-enable button
         indicator.style.display = 'none';
         generateButton.disabled = false;
     });
@@ -115,4 +106,25 @@ function generateAudio() {
 
 function clearText() {
     document.getElementById('text-prompt').value = '';
+}
+
+function downloadAudio() {
+    if (!audioBlobUrl) {
+        alert("Please generate audio first.");
+        return;
+    }
+    
+    // Create an anchor tag to simulate the download
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = audioBlobUrl;
+    
+    // Use the filename captured from the server response header
+    a.download = audioDownloadFilename; 
+    
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up the temporary anchor tag
+    document.body.removeChild(a);
 }

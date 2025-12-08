@@ -9,9 +9,9 @@
 </head>
 <body>
     <div class="container">
-    <h1>🗣️ Voice Cloning TTS Generator</h1>
+    <h1>💀🔫 Voice Cloning TTS Generator</h1>
     
-    <div class="controls">           
+    <div id="ctrl-grp" class="controls">           
         <button class="btn btn-generate" onclick="generateAudio()">GENERATE AUDIO</button>
         <button class="btn btn-clear-text" onclick="clearText()">CLEAR TEXT</button>
     </div>
@@ -19,19 +19,32 @@
          <div class="spinner"></div>
          <p>Generating audio... This may take a moment.</p>
     </div>
-    <div class="input-group wav-select-group">
-        <label for="narrator-wav">Narrator Voice:</label>
-        <select id="narrator-wav">
-            <option value="none" selected>-- Select Reference Audio (Optional) --</option>
+    
+    <div id="nar-select" class="input-group wav-select-group">
+        <label for="narrator-wav">Select Sample Voice:</label>
+        <select id="narrator-wav" onchange="document.getElementById('upload-wav').value = ''; updateFileNameDisplay(document.getElementById('upload-wav'))">
+            <option value="none" selected>-- Select Reference Audio --</option>
             {% for file in sample_files %}
             <option value="{{ file }}">{{ file }}</option>
             {% endfor %}
         </select>
+        
+        <label for="upload-wav" class="file-upload-label">
+            <span id="upload-filename">Or click here to upload a WAV/MP3 file...</span>
+            <input type="file" id="upload-wav" accept=".wav,.mp3" onchange="updateFileNameDisplay(this); document.getElementById('narrator-wav').value = 'none';">
+        </label>
     </div>
 
-    <div class="input-group text-area-group">
+    <div id="inputs-grp" class="input-group text-area-group">
         <label for="text-prompt">Text to Synthesize:</label>
         <textarea id="text-prompt" placeholder="Enter your text here..."></textarea>
+    </div>
+    
+    <div id="player" class="player-area" hidden="true">
+        <audio id="audio-player"  controls></audio>
+        <button id="download-btn" class="btn btn-clear-text" onclick="downloadAudio()">
+            Download
+        </button>
     </div>
 
 </div>
