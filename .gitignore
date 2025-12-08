@@ -46,3 +46,8 @@ checkpoints/
 
 # Ignore generated sample .wav files
 **/*.wav
+example_vc.py
+example_tts.py
+sales.py
+story.py
+multilingual_app.py 
