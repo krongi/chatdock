@@ -4,10 +4,6 @@ import time
 import json
 from flask import Flask, render_template, request, send_file, jsonify
 from datetime import datetime
-
-# --- ChatterboxTTS Imports (Based on your story.py file) ---
-# NOTE: Ensure these libraries (torchaudio, torch, chatterbox) are installed 
-# in your Docker environment.
 import torchaudio as ta
 import torch
 from chatterbox.tts import ChatterboxTTS
@@ -36,16 +32,11 @@ print(f"Using device: {device}")
 # Initialize the model once globally
 try:
     print("Loading ChatterboxTTS model...")
-    # NOTE: This model load is the most resource-intensive step.
     tts_model = ChatterboxTTS.from_pretrained(device=device)
-    # tts_model.eval()
-    # tts_model.sr = 22050 # Ensure sample rate is set for torchaudio.save
     print("ChatterboxTTS model loaded successfully.")
 except Exception as e:
     print(f"Error loading TTS model: {e}. Please check your Chatterbox installation.")
     tts_model = None
-
-# --- Utility Functions ---
 
 def get_real_client_ip(request):
     """
@@ -121,8 +112,6 @@ def generate_audio():
 
         print(f"Generating audio with voice: {narrator_file or 'Default'} for text: '{text_prompt[:50]}...'")
 
-        # --- TTS Generation ---
-        # wav is a torch tensor
         wav = tts_model.generate(text_prompt, audio_prompt_path=audio_prompt_path)
         
         # Save the waveform to an in-memory byte buffer
@@ -145,7 +134,6 @@ def generate_audio():
     except Exception as e:
         print(f"TTS Generation Error: {e}")
         return f"An error occurred during TTS generation: {e}", 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
