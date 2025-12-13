@@ -4,10 +4,13 @@ import time
 import json
 import tempfile
 from flask import Flask, render_template, request, send_file, jsonify, make_response
+# import gunicorn
 from datetime import datetime
 import torchaudio as ta
 import torch
 from chatterbox.tts import ChatterboxTTS
+
+# serve = gunicorn.
 
 # --- Configuration ---
 SAMPLES_FOLDER = 'static/samples'
@@ -87,8 +90,8 @@ def log_visit():
         return jsonify({"status": "error", "message": str(e)}), 400
 
 
-@app.route('/generate_audio', methods=['POST'])
-def generate_audio():
+@app.route('/generate_tts_audio', methods=['POST'])
+def generate_tts_audio():
     if not tts_model:
         return jsonify({'error': 'TTS model not loaded.'}), 500
 

@@ -1,12 +1,8 @@
-# Dockerfile
 FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY . /app
+RUN pip install --upgrade wheel setuptools pip && pip install chatterbox-tts flask gunicorn
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y libgomp1
+CMD ["python", "-m", "gunicorn", "-b", "0.0.0.0:5000", "-w", "4", "--timeout", "300", "app:app"]
 
-RUN pip install numpy==1.25.0 --no-deps && pip install --upgrade setuptools wheel pip flask && pip install -e .
-
-CMD ["python", "app.py"]

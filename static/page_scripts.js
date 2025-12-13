@@ -12,7 +12,7 @@ function updateFileNameDisplay(input) {
     }
 }
 
-function generateAudio() {
+function generateTTSAudio() {
     // 1. Retrieve values using the correct HTML IDs
     const textPrompt = document.getElementById('text-prompt').value;
     const narratorFileSelect = document.getElementById('narrator-wav').value; 
@@ -28,7 +28,11 @@ function generateAudio() {
         alert("Please enter some text to generate audio.");
         return;
     }
-
+    if (textPrompt.length > 1000) {
+        count = 1000
+        
+        textPromptList = textPrompt.slice()
+    }
     if (narratorFileSelect === 'none' && !uploadedFile) {
         alert("Please select a sample voice or upload a narrator voice file.");
         return;
@@ -57,7 +61,7 @@ function generateAudio() {
     audioBlobUrl = null; 
 
     // NOTICE: Do not set Content-Type: application/json when using FormData
-    fetch('/generate_audio', {
+    fetch('/generate_tts_audio', {
         method: 'POST',
         body: formData // Send the FormData object
     })
