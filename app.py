@@ -4,22 +4,20 @@ import time
 import json
 import tempfile
 from flask import Flask, render_template, request, send_file, jsonify, make_response
-# import gunicorn
 from datetime import datetime
 import torchaudio as ta
 import torch
 from chatterbox.tts import ChatterboxTTS
 
-
-
-# serve = gunicorn.
-
 # --- Configuration ---
 SAMPLES_FOLDER = 'static/samples'
 LOG_FILE_PATH = 'visitor_logs.txt'
-EXAGGERATION = 0.5
-CFG_WEIGHT = 0.5  
-TEMP = 0.8
+
+LONG_STRING = """Earlier in the year on YouTube, Yaniv Hoffman and Occupy The Web haved discussed research showing how Wi-Fi signals can be used to detect and track people through walls. The idea is simple from an RF point of view. Wi-Fi is just radio, and when those signals pass through a room they reflect and scatter off walls, furniture, and human bodies. By analyzing these reflections, it is possible to infer movement and even rough human outlines without placing any hardware inside the room.
+
+Using low-cost SDRs, a standard PC, an NVIDIA GPU, and open-source AI tools like DensePose, researchers can reconstruct basic 3D human shapes in real time. In some cases, the system does not even need to transmit its own signal. It can passively analyze reflections from an existing Wi-Fi router already operating in the home.
+
+The speakers note that this raises obvious privacy concerns. While there are some benign uses like motion-based home security or monitoring breathing in elderly care, the same techniques could be misused. Countermeasures are limited, as Wi-Fi uses spread spectrum techniques that make jamming difficult. """
 
 app = Flask(__name__, static_url_path='/static', template_folder='templates')
 
@@ -63,19 +61,23 @@ def list_sample_files():
     files = [f for f in os.listdir(full_path) if f.endswith('.wav')]
     return files
 
-def breakdown_long_prompt(text_prompt_string):
-    if len(text_prompt_string) > 1000:
-        final_string_list = []
-        placeholder_string = ''
-        text_prompt_string_list = text_prompt_string.split(' ')
-        for entry in text_prompt_string_list:
-            placeholder_string += entry + ' '
-            if len(placeholder_string) >= 1000:
-                final_string_list.append(placeholder_string)
-                placeholder_string = ''
-        if len(placeholder_string) > 0:
-            final_string_list.append(placeholder_string)
-        return final_string_list
+def breakdown_prompt(text_prompt_string):
+    text_prompt_string_list = text_prompt_string.splitlines()
+    secondary_string_list = []
+    for item in text_prompt_string_list:
+        if item != '':
+            secondary_string_list.append(item)
+    for item in secondary_string_list:
+        item.strip()
+    third_string_list = []
+    for item in secondary_string_list:
+        for chunk in item.split('.'):
+            third_string_list.append(chunk)
+    final_string_list = []
+    for item in third_string_list:
+        for chunk in item.split(','):
+            final_string_list.append(chunk)
+    return final_string_list
 
 # --- Flask Routes ---
 
@@ -127,13 +129,12 @@ def generate_tts_audio():
 
     # CRITICAL FIX: Retrieve data using keys matching the HTML IDs from the frontend
     text_prompt = request.form.get('text-prompt') 
+    prompt_list = breakdown_prompt(text_prompt)
     narrator_file_selection = request.form.get('narrator-wav') 
     uploaded_file = request.files.get('upload-wav') 
     cfg = request.form.get('cfg')
     exaggeration = request.form.get('exaggeration')
     temperature = request.form.get('temp')
-
-    # brokedown_text_list = breakdown_long_prompt(text_prompt)
 
     temp_file_path = None
     audio_prompt_path = None
@@ -169,10 +170,10 @@ def generate_tts_audio():
         # Call the actual model function
         buffer = io.BytesIO()
         wavs = []
-        # for chunk in brokedown_text_list:
-        wav = tts_model.generate(text_prompt, cfg_weight=float(cfg), temperature=float(temperature), exaggeration=float(exaggeration), audio_prompt_path=audio_prompt_path)
-        # for wav in wavs:# Save the waveform to an in-memory byte buffer
-        ta.save(buffer, wav.to('cpu'), tts_model.sr, format="wav") 
+        for chunk in prompt_list:
+            wavs.append(tts_model.generate(chunk, cfg_weight=float(cfg), temperature=float(temperature), exaggeration=float(exaggeration), audio_prompt_path=audio_prompt_path))
+        for wav in wavs:
+            ta.save(buffer, wav.to('cpu'), tts_model.sr, format="wav") 
         buffer.seek(0)
         
         # --- RESPONSE SETUP ---

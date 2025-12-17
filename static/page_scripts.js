@@ -6,16 +6,15 @@ let audioDownloadFilename = 'chatterbox_output.wav';
 let optHiddenCheck = true
 let recHiddenCheck = true
 let audioBlobs = []
-
 let options = {'cfgWeightNumInput': 0.5, 'exaggerationNumInput': 0.5, 'temperatureNumInput': 0.8}
 let recordStream = null;
 let temperatureNumInput
 let exaggerationNumInput
 let cfgWeightNumInput
 const recordBtn = document.getElementById('record-button')
-let cfgCurrent = document.getElementById("cfgWeightNumInput")
-let exgCurrent = document.getElementById("exaggerationNumInput")
-let tmpCurrent = document.getElementById("temperatureNumInput")
+// let cfgCurrent = document.getElementById("cfgWeightNumInput")
+// let exgCurrent = document.getElementById("exaggerationNumInput")
+// let tmpCurrent = document.getElementById("temperatureNumInput")
 const optionButton = document.getElementById('optBtn')
 const cfgWeightInput = document.getElementById('cfgWeightNumInput')
 const exaggerationInput = document.getElementById('exaggerationNumInput')
@@ -86,7 +85,6 @@ function recordSetup(){
             recordStream = mediaRecorder
             return mediaRecorder
         }
-
         )
 }
 
@@ -328,13 +326,4 @@ function uploadAudio(audioEvent) {
         return response.blob()
         
     })
-
-    // xhr.onerror = function() {
-    //     recordLabel.textContent = 'Status: Network error during upload.';
-    // };
-    
-    // // Replace 'upload.php' with your server-side endpoint URL
-    // xhr.open('POST', 'upload.php', true); 
-    // xhr.send(formData); // Send the FormData
-    // recordLabel.textContent = 'Status: Uploading...';
 }
