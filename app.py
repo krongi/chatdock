@@ -10,11 +10,16 @@ import torchaudio as ta
 import torch
 from chatterbox.tts import ChatterboxTTS
 
+
+
 # serve = gunicorn.
 
 # --- Configuration ---
 SAMPLES_FOLDER = 'static/samples'
 LOG_FILE_PATH = 'visitor_logs.txt'
+EXAGGERATION = 0.5
+CFG_WEIGHT = 0.5  
+TEMP = 0.8
 
 app = Flask(__name__, static_url_path='/static', template_folder='templates')
 
@@ -58,7 +63,32 @@ def list_sample_files():
     files = [f for f in os.listdir(full_path) if f.endswith('.wav')]
     return files
 
+def breakdown_long_prompt(text_prompt_string):
+    if len(text_prompt_string) > 1000:
+        final_string_list = []
+        placeholder_string = ''
+        text_prompt_string_list = text_prompt_string.split(' ')
+        for entry in text_prompt_string_list:
+            placeholder_string += entry + ' '
+            if len(placeholder_string) >= 1000:
+                final_string_list.append(placeholder_string)
+                placeholder_string = ''
+        if len(placeholder_string) > 0:
+            final_string_list.append(placeholder_string)
+        return final_string_list
+
 # --- Flask Routes ---
+
+@app.route("/upload", methods=['POST'])
+def upload():
+    try:
+        data = request.get_json()
+        print(data)
+        with open('sample_voice.wav', 'w') as file:
+            file.write(data)
+    except:
+        print("nope")
+
 
 @app.route('/', methods=['GET'])
 def index():
@@ -99,7 +129,12 @@ def generate_tts_audio():
     text_prompt = request.form.get('text-prompt') 
     narrator_file_selection = request.form.get('narrator-wav') 
     uploaded_file = request.files.get('upload-wav') 
-    
+    cfg = request.form.get('cfg')
+    exaggeration = request.form.get('exaggeration')
+    temperature = request.form.get('temp')
+
+    # brokedown_text_list = breakdown_long_prompt(text_prompt)
+
     temp_file_path = None
     audio_prompt_path = None
 
@@ -132,15 +167,17 @@ def generate_tts_audio():
         print(f"Generating audio for text: '{text_prompt[:50]}...' using voice: {audio_prompt_path or 'Default'}")
         
         # Call the actual model function
-        wav = tts_model.generate(text_prompt, audio_prompt_path=audio_prompt_path)
-        
-        # Save the waveform to an in-memory byte buffer
         buffer = io.BytesIO()
+        wavs = []
+        # for chunk in brokedown_text_list:
+        wav = tts_model.generate(text_prompt, cfg_weight=float(cfg), temperature=float(temperature), exaggeration=float(exaggeration), audio_prompt_path=audio_prompt_path)
+        # for wav in wavs:# Save the waveform to an in-memory byte buffer
         ta.save(buffer, wav.to('cpu'), tts_model.sr, format="wav") 
         buffer.seek(0)
         
         # --- RESPONSE SETUP ---
-        download_filename = f"chatterbox_output_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
+        nar_name = narrator_file_selection.split('.')[0]
+        download_filename = f"{nar_name}_cfg{cfg}_exag{exaggeration}_temp{temperature}_{datetime.now().strftime('%Y%m%d%H%M%S')}.wav"
         
         response = make_response(buffer.getvalue())
         response.headers.set('Content-Type', 'audio/wav')

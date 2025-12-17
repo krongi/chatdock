@@ -9,11 +9,38 @@
 </head>
 <body>
     <div class="container">
-    <h1>💀🔫 Voice Cloning TTS Generator</h1>
-    
+    <h1>Voice Cloning TTS Generator</h1>
     <div id="ctrl-grp" class="controls">           
         <button class="btn btn-generate" onclick="generateTTSAudio()">GENERATE AUDIO</button>
-        <button class="btn btn-clear-text" onclick="clearText()">CLEAR TEXT</button>
+        <button class="btn btn-enable-mic" onclick="showRecord()">ALLOW MIC ACCESS/RECORD</button>
+    </div>
+    
+
+    <div class="container rec-container" id="rec-container" style="display: None; position: absolute;">
+            <button class="btn btn-record" id="record-button" onclick="startRecord()" style="background-color: green;">RECORD</button>
+            <button class="btn btn-record" id="pause-button" onclick="pauseRecord()" style="background-color: yellow;" disabled="true">PAUSE</button>
+            <button class="btn btn-stop" id="stop-button" onclick="stopRecord()" style="background-color: red;" disabled="true">STOP</button> 
+            <div class="container status-label" id="status-label-container" hidden="true">
+            <label id="recording-status-label" hidden="true"></label>
+            </div>
+    </div>
+    <div class="controls">
+        <button class="btn btn-opt" id="optBtn"style="background-color: red;" onclick="showOptions()">SHOW ADDITIONAL OPTIONS</button>
+    </div>
+    <div class="container option-container" id="opt-container" style="display: None; position: absolute;">
+        <div class="optBox">
+            <label for="cfgWeight" id="cfgWeightLabel">cfg</label>
+            <input class="optionTweaks" type="number" min="0.01" max="2" step="0.01" name="cfgWeightNumInput" id="cfgWeightNumInput" value="0.5">
+            <label for="cfgWeightValue" id="cfgWeightValueLabel"></label>
+        </div>
+        <div class="optBox">
+            <label for="exaggeration" id="exaggerationLabel">exg</label>
+            <input class="optionTweaks" type="number" min="0.01" max="2" step="0.01" name="exaggerationNumInput" id="exaggerationNumInput" value="0.5">
+        </div>
+        <div class="optBox">
+            <label for="temperature" id="temperatureLabel">tmp</label>
+            <input class="optionTweaks" type="number" min="0.01" max="2" step="0.01" name="temperatureNumInput" id="temperatureNumInput" value="0.8">
+        </div>
     </div>
     <div id="loading-indicator" class="loading-indicator" style="display: none;">
          <div class="spinner"></div>
@@ -22,7 +49,8 @@
     
     <div id="nar-select" class="input-group wav-select-group">
         <label for="narrator-wav">Select Sample Voice:</label>
-        <select id="narrator-wav" onchange="document.getElementById('upload-wav').value = ''; updateFileNameDisplay(document.getElementById('upload-wav'))">
+        <!-- <select id="narrator-wav" onchange="document.getElementById('upload-wav').value = ''; updateFileNameDisplay(document.getElementById('upload-wav'))"> -->
+            <select id="narrator-wav">
             <option value="none" selected>-- Select Reference Audio --</option>
             {% for file in sample_files %}
             <option value="{{ file }}">{{ file }}</option>
@@ -30,7 +58,7 @@
         </select>
     </div>    
     
-    <div style="display: flexbox; align-items: center; align-content: center; text-align: center;">
+    <!-- <div style="display: flexbox; align-items: center; align-content: center; text-align: center;">
         <label for="upload-who" class="file-upload-label">
             <span id="upload-filename">click here to upload who you want saying it in WAV...</span>
             <input type="file" id="upload-wav" accept=".wav,.mp3" onchange="updateFileNameDisplay(this); document.getElementById('narrator-wav').value = 'none';">
@@ -39,21 +67,43 @@
             <span id="upload-filename">click here to upload what you want said in WAV...</span>
             <input type="file" id="upload-wav" accept=".wav,.mp3" onchange="updateFileNameDisplay(this); document.getElementById('narrator-wav').value = 'none';">
         </label>
-    </div>
+    </div> -->
 
     <div id="inputs-grp" class="input-group text-area-group">
         <label for="text-prompt">Text to Synthesize:</label>
         <textarea id="text-prompt" placeholder="Enter your text here..."></textarea>
     </div>
-    
+    <div class="control">
+    <button class="btn btn-clear-text" onclick="clearText()">CLEAR TEXT</button>
+    </div>
     <div id="player" class="player-area" hidden="true">
-        <audio id="audio-player"  controls></audio>
+        <audio id="audio-player" controls></audio>
         <button id="download-btn" class="btn btn-clear-text" onclick="downloadAudio()">
             Download
         </button>
+        <div>
+            <form>
+                <input type="file" placeholder="voice_sample.wav" accept=".wav" name="file-name" id="uploader">
+                <button id="upload-btn" class="btn btn-clear-text" onclick="uploadAudio()">
+                    Upload
+                </button>
+            </form>
+        </div>
     </div>
 
 </div>
+
 <script src="{{ url_for('static', filename='page_scripts.js') }}"></script>
+<script>
+
+function setupEventListeners() {
+        for (let i = 0; i < document.getElementsByClassName('optionTweaks').length; i++) {
+            document.getElementsByClassName('optionTweaks')[i].addEventListener('change', handleChange)
+        }
+}
+    // const md = navigator.mediaDevices.getUserMedia({audio: true})
+    
+    setupEventListeners();
+</script>
 </body>
 </html>
